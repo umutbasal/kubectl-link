@@ -2,22 +2,48 @@ package main
 
 import (
 	"context"
-	"log"
+	"errors"
 	"net"
 	"time"
 
 	"github.com/xjasonlyu/tun2socks/v2/dialer"
+	"github.com/xjasonlyu/tun2socks/v2/log"
 	M "github.com/xjasonlyu/tun2socks/v2/metadata"
-	"github.com/xjasonlyu/tun2socks/v2/proxy"
 	"github.com/xjasonlyu/tun2socks/v2/proxy/proto"
 )
 
-var _ proxy.Proxy = (*Direct)(nil)
+// Base is the base proxy type.
+type Base struct {
+	addr  string
+	proto proto.Proto
+}
 
+// Addr returns the address of the proxy.
+func (b *Base) Addr() string {
+	return b.addr
+}
+
+// Proto returns the protocol of the proxy.
+func (b *Base) Proto() proto.Proto {
+	return b.proto
+}
+
+// DialContext dials a connection to the proxy.
+func (b *Base) DialContext(context.Context, *M.Metadata) (net.Conn, error) {
+	return nil, errors.ErrUnsupported
+}
+
+// DialUDP dials a UDP connection to the proxy.
+func (b *Base) DialUDP(*M.Metadata) (net.PacketConn, error) {
+	return nil, errors.ErrUnsupported
+}
+
+// Direct is a direct proxy.
 type Direct struct {
 	*Base
 }
 
+// NewDirect creates a new Direct proxy.
 func NewDirect() *Direct {
 	return &Direct{
 		Base: &Base{
@@ -27,9 +53,9 @@ func NewDirect() *Direct {
 	}
 }
 
+// DialContext dials a connection to the proxy.
 func (d *Direct) DialContext(ctx context.Context, metadata *M.Metadata) (net.Conn, error) {
-	log.Printf("[Direct] DialContext: %s", metadata.DestinationAddress())
-	c, err := dialer.DialContext(ctx, "tcp", "localhost:8000")
+	c, err := dialer.DialContext(ctx, "tcp", "localhost:8080")
 	if err != nil {
 		return nil, err
 	}
@@ -37,8 +63,8 @@ func (d *Direct) DialContext(ctx context.Context, metadata *M.Metadata) (net.Con
 	return c, nil
 }
 
+// DialUDP dials a UDP connection to the proxy.
 func (d *Direct) DialUDP(*M.Metadata) (net.PacketConn, error) {
-	log.Printf("[Direct] DialUDP")
 	pc, err := dialer.ListenPacket("udp", "")
 	if err != nil {
 		return nil, err
@@ -51,7 +77,6 @@ type directPacketConn struct {
 }
 
 func (pc *directPacketConn) WriteTo(b []byte, addr net.Addr) (int, error) {
-	log.Printf("[Direct] WriteTo: %s", addr.String())
 	if udpAddr, ok := addr.(*net.UDPAddr); ok {
 		return pc.PacketConn.WriteTo(b, udpAddr)
 	}
@@ -73,19 +98,12 @@ func setKeepAlive(c net.Conn) {
 		err := tcp.SetKeepAlive(true)
 
 		if err != nil {
-			log.Printf("[Direct] failed to set keepalive: %v", err)
+			log.Infof("[Direct] failed to set keepalive: %v", err)
 		}
 		err = tcp.SetKeepAlivePeriod(tcpKeepAlivePeriod)
 		if err != nil {
-			log.Printf("[Direct] failed to set keepalive period: %v", err)
+			log.Infof("[Direct] failed to set keepalive period: %v", err)
 		}
 
-	}
-}
-
-// safeConnClose closes tcp connection safely.
-func safeConnClose(c net.Conn, err error) {
-	if c != nil && err != nil {
-		_ = c.Close()
 	}
 }
