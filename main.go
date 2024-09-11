@@ -7,9 +7,15 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/signal"
 	"path"
+	"sync"
+	"syscall"
 
 	"github.com/spf13/pflag"
+	"github.com/xjasonlyu/tun2socks/v2/core/device"
+	"github.com/xjasonlyu/tun2socks/v2/proxy"
+	"gvisor.dev/gvisor/pkg/tcpip/stack"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
@@ -30,9 +36,34 @@ var (
 	errNoContext = fmt.Errorf("no context is currently set, use %q to select a new one", "kubectl config use-context <context>")
 )
 
+type Key struct {
+	MTU               int    `yaml:"mtu"`
+	Mark              int    `yaml:"fwmark"`
+	Device            string `yaml:"device"`
+	Tun2SocksLogLevel string `yaml:"tun2socks_log_level"`
+	Interface         string `yaml:"interface"`
+}
+
+var (
+	_engineMu      sync.Mutex
+	_defaultKey    *Key
+	_defaultProxy  proxy.Proxy
+	_defaultDevice device.Device
+	_defaultStack  *stack.Stack
+	key            = new(Key)
+)
+
+func pluginFlags(flags *pflag.FlagSet) {
+	flags.StringVar(&key.Device, "device", "", "Use this device [driver://]name")
+	flags.StringVar(&key.Interface, "interface", "", "Use network INTERFACE (Linux/MacOS only)")
+	flags.StringVar(&key.Tun2SocksLogLevel, "tun2socks_log_level", "info", "Log level [debug|info|warn|error|silent]")
+}
+
 func main() {
 	flags := pflag.NewFlagSet("kubectl-link", pflag.ExitOnError)
 	pflag.CommandLine = flags
+
+	pluginFlags(flags)
 
 	klogFlags := flag.NewFlagSet("ignored", flag.ExitOnError)
 	klog.InitFlags(klogFlags)
@@ -95,11 +126,19 @@ func main() {
 		klog.Fatalf("no running dns pods found")
 	}
 
-	// Forward port kubectl port-forward -n kube-system pod/coredns-0-a 5300:53
-	err = PodPortForward(clientCfg, dnsPod, []string{"5300:53"})
-	if err != nil {
-		klog.Fatalf("failed to forward port: %v", err)
-	}
+	// // Forward port kubectl port-forward -n kube-system pod/coredns-0-a 5300:53
+	// err = PodPortForward(clientCfg, dnsPod, []string{"5300:53"})
+	// if err != nil {
+	// 	klog.Fatalf("failed to forward port: %v", err)
+	// }
+	Insert(key)
+
+	Start()
+	defer Stop()
+
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	<-sigCh
 }
 
 func PodPortForward(clientCfg *rest.Config, pod *v1.Pod, ports []string) error {
