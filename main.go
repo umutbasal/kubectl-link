@@ -7,10 +7,8 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"os/signal"
 	"path"
 	"sync"
-	"syscall"
 
 	"github.com/spf13/pflag"
 	"github.com/xjasonlyu/tun2socks/v2/core/device"
@@ -41,6 +39,7 @@ type Opts struct {
 	Tun2SocksLogLevel string `yaml:"tun2socks_log_level"`
 	Interface         string `yaml:"interface"`
 	DNSPod            string `yaml:"dns_pod"`
+	DNSClusterZone    string `yaml:"dns_cluster_zone"`
 }
 
 var (
@@ -58,6 +57,7 @@ func pluginFlags(flags *pflag.FlagSet) {
 	flags.StringVar(&opt.Interface, "interface", "", "Use network INTERFACE (Linux/MacOS only)")
 	flags.StringVar(&opt.Tun2SocksLogLevel, "tun2socks-log-level", "info", "Log level [debug|info|warn|error|silent]")
 	flags.StringVar(&opt.DNSPod, "dns-pod", "", "DNS pod name")
+	flags.StringVar(&opt.DNSClusterZone, "dns-cluster-zone", "cluster.local", "DNS cluster zone")
 }
 
 func main() {
@@ -117,14 +117,18 @@ func main() {
 	// if err != nil {
 	// 	klog.Fatalf("failed to forward port: %v", err)
 	// }
-	Insert(opt)
 
-	Start()
-	defer Stop()
+	// if opt.DNSClusterZone == "" {
+	// 	opt.DNSClusterZone = findZone(dnsPod.Status.PodIP)
+	// }
+	// Insert(opt)
 
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-	<-sigCh
+	// Start()
+	// defer Stop()
+
+	// sigCh := make(chan os.Signal, 1)
+	// signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	// <-sigCh
 }
 
 func hasPort(pod *v1.Pod, containerPort int32, protocol v1.Protocol) bool {
