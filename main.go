@@ -57,7 +57,6 @@ func pluginFlags(flags *pflag.FlagSet) {
 	flags.StringVar(&opt.Device, "device", "", "Use this device [driver://]name")
 	flags.StringVar(&opt.Interface, "interface", "", "Use network INTERFACE (Linux/MacOS only)")
 	flags.StringVar(&opt.Tun2SocksLogLevel, "tun2socks-log-level", "info", "Log level [debug|info|warn|error|silent]")
-	flags.StringVar(&opt.Tun2SocksLogLevel, "l", "info", "Log level [debug|info|warn|error|silent]")
 	flags.StringVar(&opt.DNSPod, "dns-pod", "", "DNS pod name")
 }
 
