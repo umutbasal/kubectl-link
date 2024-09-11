@@ -20,40 +20,36 @@ import (
 	"github.com/xjasonlyu/tun2socks/v2/tunnel"
 )
 
-func configure(k *Key) error {
-	level, err := log.ParseLevel(k.Tun2SocksLogLevel)
+func configure(opt *Opts) error {
+	level, err := log.ParseLevel(opt.Tun2SocksLogLevel)
 	if err != nil {
 		return err
 	}
 	log.SetLogger(log.Must(log.NewLeveled(level)))
 
-	if k.Interface != "" {
-		iface, err := net.InterfaceByName(k.Interface)
+	if opt.Interface != "" {
+		iface, err := net.InterfaceByName(opt.Interface)
 		if err != nil {
 			return err
 		}
 		dialer.DefaultInterfaceName.Store(iface.Name)
 		dialer.DefaultInterfaceIndex.Store(int32(iface.Index))
-		log.Infof("[DIALER] bind to interface: %s", k.Interface)
+		log.Infof("[DIALER] bind to interface: %s", opt.Interface)
 	}
 
-	if k.Mark != 0 {
-		dialer.DefaultRoutingMark.Store(int32(k.Mark))
-		log.Infof("[DIALER] set fwmark: %#x", k.Mark)
-	}
 	return nil
 }
 
-func bootNetstack(k *Key) (err error) {
+func bootNetstack(opt *Opts) (err error) {
 	log.Infof("[NETSTACK] starting...")
-	if k.Device == "" {
+	if opt.Device == "" {
 		return errors.New("empty device")
 	}
 
 	_defaultProxy = NewDirect() // Use the Direct proxy
 	tunnel.T().SetDialer(_defaultProxy)
 
-	if _defaultDevice, err = parseDevice(k.Device, uint32(k.MTU)); err != nil {
+	if _defaultDevice, err = parseDevice(opt.Device, uint32(0)); err != nil {
 		return
 	}
 
@@ -83,15 +79,15 @@ func Start() {
 	_engineMu.Lock()
 	defer _engineMu.Unlock()
 
-	if _defaultKey == nil {
-		log.Fatalf("[ENGINE] failed to start: %v", errors.New("empty key"))
+	if _defaultOpt == nil {
+		log.Fatalf("[ENGINE] failed to start: %v", errors.New("empty Opts"))
 	}
 
-	for _, f := range []func(*Key) error{
+	for _, f := range []func(*Opts) error{
 		configure,
 		bootNetstack,
 	} {
-		if err := f(_defaultKey); err != nil {
+		if err := f(_defaultOpt); err != nil {
 			log.Fatalf("[ENGINE] failed to start: %v", err)
 		}
 	}
@@ -111,10 +107,10 @@ func Stop() {
 	}
 }
 
-// Insert inserts a new key into the engine.
-func Insert(k *Key) {
+// Insert inserts a new Opts into the engine.
+func Insert(opt *Opts) {
 	_engineMu.Lock()
-	_defaultKey = k
+	_defaultOpt = opt
 	_engineMu.Unlock()
 }
 

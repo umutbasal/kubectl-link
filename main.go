@@ -36,27 +36,29 @@ var (
 	errNoContext = fmt.Errorf("no context is currently set, use %q to select a new one", "kubectl config use-context <context>")
 )
 
-type Key struct {
-	MTU               int    `yaml:"mtu"`
-	Mark              int    `yaml:"fwmark"`
+type Opts struct {
 	Device            string `yaml:"device"`
 	Tun2SocksLogLevel string `yaml:"tun2socks_log_level"`
 	Interface         string `yaml:"interface"`
+	DNSPod            string `yaml:"dns_pod"`
 }
 
 var (
 	_engineMu      sync.Mutex
-	_defaultKey    *Key
+	_defaultOpt    *Opts
 	_defaultProxy  proxy.Proxy
 	_defaultDevice device.Device
 	_defaultStack  *stack.Stack
-	key            = new(Key)
+	dnsPod         *v1.Pod
+	opt            = new(Opts)
 )
 
 func pluginFlags(flags *pflag.FlagSet) {
-	flags.StringVar(&key.Device, "device", "", "Use this device [driver://]name")
-	flags.StringVar(&key.Interface, "interface", "", "Use network INTERFACE (Linux/MacOS only)")
-	flags.StringVar(&key.Tun2SocksLogLevel, "tun2socks_log_level", "info", "Log level [debug|info|warn|error|silent]")
+	flags.StringVar(&opt.Device, "device", "", "Use this device [driver://]name")
+	flags.StringVar(&opt.Interface, "interface", "", "Use network INTERFACE (Linux/MacOS only)")
+	flags.StringVar(&opt.Tun2SocksLogLevel, "tun2socks-log-level", "info", "Log level [debug|info|warn|error|silent]")
+	flags.StringVar(&opt.Tun2SocksLogLevel, "l", "info", "Log level [debug|info|warn|error|silent]")
+	flags.StringVar(&opt.DNSPod, "dns-pod", "", "DNS pod name")
 }
 
 func main() {
@@ -92,33 +94,18 @@ func main() {
 
 	client := kubernetes.NewForConfigOrDie(clientCfg)
 
-	// Find dns pods filter healthy one
-	pods, err := client.CoreV1().Pods("kube-system").List(context.TODO(), metav1.ListOptions{
-		LabelSelector: "k8s-app=kube-dns",
-		FieldSelector: "status.phase=Running",
-	})
-
-	if err != nil {
-		klog.Fatalf("failed to list pods: %v", err)
-	}
-
-	if len(pods.Items) == 0 {
-		klog.Fatalf("no dns pods found")
-	}
-
-	var dnsPod *v1.Pod
-	for i := range pods.Items {
-		pod := &pods.Items[i]
-		for _, container := range pod.Spec.Containers {
-			if container.Ports == nil {
-				continue
-			}
-			for _, port := range container.Ports {
-				if port.ContainerPort == 53 && port.Protocol == "TCP" { // TODO: Check if portforward is able to forward by udp
-					dnsPod = pod
-					break
-				}
-			}
+	if opt.DNSPod != "" {
+		dnsPod, err = getDNSPodByName(client, "kube-system", opt.DNSPod)
+		if err != nil {
+			klog.Fatalf("Error: %v", err)
+		}
+		if dnsPod == nil {
+			klog.Fatalf("Specified DNS pod not found")
+		}
+	} else {
+		dnsPod, err = findHealthyDNSPod(client, "kube-system")
+		if err != nil {
+			klog.Fatalf("Error: %v", err)
 		}
 	}
 
@@ -131,7 +118,7 @@ func main() {
 	// if err != nil {
 	// 	klog.Fatalf("failed to forward port: %v", err)
 	// }
-	Insert(key)
+	Insert(opt)
 
 	Start()
 	defer Stop()
@@ -139,6 +126,51 @@ func main() {
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	<-sigCh
+}
+
+func hasPort(pod *v1.Pod, containerPort int32, protocol v1.Protocol) bool {
+	for _, container := range pod.Spec.Containers {
+		if container.Ports != nil {
+			for _, port := range container.Ports {
+				if port.ContainerPort == containerPort && port.Protocol == protocol {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+func getDNSPodByName(client kubernetes.Interface, namespace, name string) (*v1.Pod, error) {
+	pod, err := client.CoreV1().Pods(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get dns pod: %v", err)
+	}
+	if pod.Status.Phase != v1.PodRunning || !hasPort(pod, 53, "TCP") {
+		return nil, nil
+	}
+	return pod, nil
+}
+
+func findHealthyDNSPod(client kubernetes.Interface, namespace string) (*v1.Pod, error) {
+	pods, err := client.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{
+		LabelSelector: "k8s-app=kube-dns",
+		FieldSelector: "status.phase=Running",
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list pods: %v", err)
+	}
+	if len(pods.Items) == 0 {
+		return nil, fmt.Errorf("no dns pods found")
+	}
+
+	for i := range pods.Items {
+		pod := &pods.Items[i]
+		if hasPort(pod, 53, "TCP") {
+			return pod, nil
+		}
+	}
+	return nil, fmt.Errorf("no healthy dns pod found")
 }
 
 func PodPortForward(clientCfg *rest.Config, pod *v1.Pod, ports []string) error {
