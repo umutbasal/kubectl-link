@@ -10,6 +10,9 @@ import (
 	"strings"
 
 	"github.com/google/shlex"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"k8s.io/klog"
 
 	"github.com/xjasonlyu/tun2socks/v2/core"
 	"github.com/xjasonlyu/tun2socks/v2/core/device"
@@ -20,12 +23,30 @@ import (
 	"github.com/xjasonlyu/tun2socks/v2/tunnel"
 )
 
+// Custom WriteSyncer to redirect zap logs to klog
+type klogWriter struct{}
+
+func (kw *klogWriter) Write(p []byte) (n int, err error) {
+	klog.InfoDepth(1, string(p))
+	return len(p), nil
+}
+
+func (kw *klogWriter) Sync() error {
+	return nil
+}
+
 func configure(opt *Opts) error {
-	level, err := log.ParseLevel(opt.Tun2SocksLogLevel)
-	if err != nil {
-		return err
-	}
-	log.SetLogger(log.Must(log.NewLeveled(level)))
+	core := zapcore.NewCore(
+		zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()), // Use console encoder
+		zapcore.AddSync(&klogWriter{}),                               // Redirect output to klog
+		zap.InfoLevel,                                                // Set logging level
+	)
+
+	// Create a zap logger using the custom core
+	logger := zap.New(core)
+	defer logger.Sync()
+
+	log.SetLogger(logger)
 
 	if opt.Interface != "" {
 		iface, err := net.InterfaceByName(opt.Interface)

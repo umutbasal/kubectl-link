@@ -224,7 +224,7 @@ func PodPortForward(clientCfg *rest.Config, pod *v1.Pod, ports []string) error {
 
 	dialer := spdy.NewDialer(upgrader, &http.Client{Transport: transport}, http.MethodPost, targetURL)
 
-	forwarder, err := portforward.New(dialer, ports, context.Background().Done(), make(chan struct{}), os.Stdout, os.Stderr)
+	forwarder, err := portforward.New(dialer, ports, context.Background().Done(), make(chan struct{}), &klogWriter{}, &klogWriter{})
 	if err != nil {
 		return fmt.Errorf("failed to create port forwarder: %w", err)
 	}
@@ -251,7 +251,7 @@ func GetForwardedService(client kubernetes.Interface, dst string) (net.Addr, err
 		return nil, fmt.Errorf("failed to convert port: %w", err)
 	}
 
-	fmt.Printf("Parsed IP: %s, Port: %d\n", ip, port)
+	klog.Infof("Forwarding service: %s", dst)
 
 	// Check if the forwarding is already mapped
 	if existingAddr, ok := _fwdMap.get(fromAddr(fmt.Sprintf("tcp://%s:%d", ip, port))); ok {
