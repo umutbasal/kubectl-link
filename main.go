@@ -4,11 +4,13 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"path"
 	"sync"
+	"time"
 
 	"github.com/spf13/pflag"
 	"github.com/xjasonlyu/tun2socks/v2/core/device"
@@ -112,12 +114,28 @@ func main() {
 		klog.Fatalf("no running dns pods found")
 	}
 
-	// // Forward port kubectl port-forward -n kube-system pod/coredns-0-a 5300:53
-	// err = PodPortForward(clientCfg, dnsPod, []string{"5300:53"})
-	// if err != nil {
-	// 	klog.Fatalf("failed to forward port: %v", err)
-	// }
+	go func() {
+		// Forward port kubectl port-forward -n kube-system pod/coredns-0-a 5300:53
+		err = PodPortForward(clientCfg, dnsPod, []string{"5300:53"})
+		if err != nil {
+			klog.Fatalf("failed to forward port: %v", err)
+		}
+	}()
 
+	// wait for port forward to be ready
+	waitDNS()
+
+	opt.DNSClusterZone = findZone(dnsPod.Status.PodIP)
+
+	pod, err := findPodByIP(client, "172.31.4.56", "cluster.local")
+	if err != nil {
+		klog.Fatalf("failed to find pod: %v", err)
+	}
+	if pod == nil {
+		klog.Fatalf("failed to find pod")
+	}
+
+	select {}
 	// if opt.DNSClusterZone == "" {
 	// 	opt.DNSClusterZone = findZone(dnsPod.Status.PodIP)
 	// }
@@ -129,6 +147,24 @@ func main() {
 	// sigCh := make(chan os.Signal, 1)
 	// signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	// <-sigCh
+}
+
+// waitDns checks if the port forward is ready
+func waitDNS() {
+	for i := 0; i < 3; i++ {
+		_, err := net.Dial("tcp", "localhost:5300")
+		if err == nil {
+			break
+		}
+		time.Sleep(1 * time.Second)
+	}
+
+	_, err := net.Dial("tcp", "localhost:5300")
+	if err != nil {
+		klog.Fatalf("failed to dial: %v", err)
+	}
+
+	klog.Infof("port forward ready")
 }
 
 func hasPort(pod *v1.Pod, containerPort int32, protocol v1.Protocol) bool {

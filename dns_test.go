@@ -1,6 +1,7 @@
 package main
 
 import (
+	"net"
 	"testing"
 )
 
@@ -47,4 +48,19 @@ func TestSplit(t *testing.T) {
 			t.Errorf("split(%q, %q) = %q; want %q", test.name, test.zone, result, test.expected)
 		}
 	}
+}
+
+func Test_rdns(t *testing.T) {
+	got, err := rdns(&net.UDPAddr{
+		IP:   net.ParseIP("1.1.1.1"),
+		Port: 53,
+	}, "8.8.8.8")
+	if err != nil {
+		t.Fatalf("rdns() error = %v", err)
+	}
+
+	if got != "dns.google." {
+		t.Errorf("rdns() = %q; want not empty", got)
+	}
+
 }
