@@ -74,8 +74,8 @@ func bootNetstack(opt *Opts) (err error) {
 	return nil
 }
 
-// Start starts the TUN/TAP engine.
-func Start() {
+// StartTun starts the TUN/TAP engine.
+func StartTun() {
 	_engineMu.Lock()
 	defer _engineMu.Unlock()
 
@@ -93,8 +93,8 @@ func Start() {
 	}
 }
 
-// Stop stops the TUN/TAP engine.
-func Stop() {
+// StopTun stops the TUN/TAP engine.
+func StopTun() {
 	_engineMu.Lock()
 	defer _engineMu.Unlock()
 
@@ -107,8 +107,8 @@ func Stop() {
 	}
 }
 
-// Insert inserts a new Opts into the engine.
-func Insert(opt *Opts) {
+// InsertOptsTun inserts a new Opts into the engine.
+func InsertOptsTun(opt *Opts) {
 	_engineMu.Lock()
 	_defaultOpt = opt
 	_engineMu.Unlock()

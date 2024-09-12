@@ -134,10 +134,10 @@ func main() {
 	opt.DNSClusterZone = findZone(dnsPod.Status.PodIP)
 
 	_kclient = client
-	Insert(opt)
+	InsertOptsTun(opt)
 
-	Start()
-	defer Stop()
+	StartTun()
+	defer StopTun()
 
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
