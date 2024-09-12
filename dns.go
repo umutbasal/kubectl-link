@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"math/rand"
 	"net"
 	"strings"
 
@@ -149,7 +148,6 @@ func rdns(dnsAddr net.Addr, ip string) (full string, err error) {
 	// 1. _port._protocol.service.namespace.pod|svc.zone
 	// 2. (endpoint): endpoint.service.namespace.pod|svc.zone
 	// 3. (service): service.namespace.pod|svc.zone
-	_ = ip
 
 	//dig SRV  +vc -p 5300 @127.0.0.1 -x 172.0.0.1)
 	reverse, err := dns.ReverseAddr(ip)
@@ -178,15 +176,4 @@ func rdns(dnsAddr net.Addr, ip string) (full string, err error) {
 	}
 
 	return ans, nil
-}
-
-func mockrdns(ip string) string {
-	cases := []string{
-		"_port._protocol.service.namespace.pod.zone",
-		"endpoint.service.namespace.pod.zone",
-		"service.namespace.pod.zone",
-	}
-	choose := cases[rand.Intn(len(cases))]
-	_ = ip
-	return choose
 }
