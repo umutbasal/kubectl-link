@@ -236,56 +236,61 @@ func PodPortForward(clientCfg *rest.Config, pod *v1.Pod, ports []string) error {
 	return nil
 }
 
-func GetForwardedService(client kubernetes.Interface, dst net.Addr) (net.Addr, error) {
-	if dst.String() == "" {
-		return nil, fmt.Errorf("empty destination")
+func GetForwardedService(client kubernetes.Interface, dst string) (net.Addr, error) {
+	if dst == "" {
+		return nil, fmt.Errorf("empty destination address")
 	}
 
-	end := dst.String()
-	fmt.Println("end", end)
-
-	ip, p, err := net.SplitHostPort(end)
+	ip, portStr, err := net.SplitHostPort(dst)
 	if err != nil {
 		return nil, fmt.Errorf("failed to split host port: %w", err)
 	}
 
-	dstPort, err := strconv.Atoi(p)
+	port, err := strconv.Atoi(portStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert port: %w", err)
 	}
 
-	n, ok := _fwdMap.get(fromAddr(fmt.Sprintf("tcp://%s:%d", ip, dstPort)))
-	if ok {
-		return n, nil
+	fmt.Printf("Parsed IP: %s, Port: %d\n", ip, port)
+
+	// Check if the forwarding is already mapped
+	if existingAddr, ok := _fwdMap.get(fromAddr(fmt.Sprintf("tcp://%s:%d", ip, port))); ok {
+		return existingAddr, nil
 	}
 
-	port := _fwdMap.findFreePort()
+	// Find a free local port for forwarding
+	localPort := _fwdMap.findFreePort()
+	_fwdMap.addPort(localPort)
 
-	_fwdMap.addPort(port)
-
+	// Find the pod by IP
 	pod, err := findPodByIP(client, ip, opt.DNSClusterZone)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to find pod by IP: %w", err)
 	}
+
+	// Forward the port
 	go func() {
-		klog.Infof("Forwarding port: %s", port)
-		err := PodPortForward(_clientCfg, pod, []string{fmt.Sprintf("%s:%d", port, dstPort)})
-		if err != nil {
+		klog.Infof("Forwarding port: %d", localPort)
+		if err := PodPortForward(_clientCfg, pod, []string{fmt.Sprintf("%s:%d", localPort, port)}); err != nil {
 			klog.Fatalf("failed to forward port: %v", err)
 		}
 	}()
 
-	// wait for port forward to be ready
-	klog.Infof("Waiting for port: %s", port)
-	waitPort(port)
+	// Wait for the port forwarding to be ready
+	klog.Infof("Waiting for port: %d", localPort)
+	waitPort(localPort)
 
-	klog.Infof("Port forward ready: %s", port)
-	portInt, _ := strconv.Atoi(port)
-	localNet := net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Port: portInt}
+	klog.Infof("Port forward ready: %d", localPort)
+	port, err = strconv.Atoi(localPort)
+	if err != nil {
+		klog.Fatalf("failed to convert port: %v", err)
+	}
+	localNet := &net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Port: port}
 
-	_fwdMap.add(fromAddr(fmt.Sprintf("tcp://%s:%d", ip, dstPort)), &localNet)
+	// Update the forwarding map with the new local address
+	_fwdMap.add(fromAddr(fmt.Sprintf("tcp://%s:%d", ip, port)), localNet)
 
 	klog.Infof("Forwarded service: %s", localNet.String())
 
-	return &localNet, nil
+	return localNet, nil
 }
