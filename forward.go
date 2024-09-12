@@ -55,7 +55,13 @@ func NewDirect() *Direct {
 
 // DialContext dials a connection to the proxy.
 func (d *Direct) DialContext(ctx context.Context, metadata *M.Metadata) (net.Conn, error) {
-	c, err := dialer.DialContext(ctx, "tcp", "localhost:8080")
+	log.Infof("[Direct] DialContext: %v", metadata)
+	dst := &net.TCPAddr{IP: net.IP(metadata.DstIP.String()), Port: int(metadata.DstPort)}
+	fwd, err := GetForwardedService(_kclient, dst)
+	if err != nil {
+		return nil, err
+	}
+	c, err := dialer.DialContext(ctx, "tcp", fwd.String())
 	if err != nil {
 		return nil, err
 	}

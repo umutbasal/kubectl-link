@@ -8,8 +8,11 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/signal"
 	"path"
+	"strconv"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/spf13/pflag"
@@ -52,6 +55,9 @@ var (
 	_defaultStack  *stack.Stack
 	dnsPod         *v1.Pod
 	opt            = new(Opts)
+	_fwdMap        = newFwdMap()
+	_kclient       kubernetes.Interface
+	_clientCfg     *rest.Config
 )
 
 func pluginFlags(flags *pflag.FlagSet) {
@@ -88,12 +94,12 @@ func main() {
 
 	klog.Infof("current context: %s", rawConfig.CurrentContext)
 
-	clientCfg, err := configFlags.ToRESTConfig()
+	_clientCfg, err = configFlags.ToRESTConfig()
 	if err != nil {
 		klog.Fatalf("failed to create REST config: %v", err)
 	}
 
-	client := kubernetes.NewForConfigOrDie(clientCfg)
+	client := kubernetes.NewForConfigOrDie(_clientCfg)
 
 	if opt.DNSPod != "" {
 		dnsPod, err = getDNSPodByName(client, "kube-system", opt.DNSPod)
@@ -116,43 +122,32 @@ func main() {
 
 	go func() {
 		// Forward port kubectl port-forward -n kube-system pod/coredns-0-a 5300:53
-		err = PodPortForward(clientCfg, dnsPod, []string{"5300:53"})
+		err = PodPortForward(_clientCfg, dnsPod, []string{"5300:53"})
 		if err != nil {
 			klog.Fatalf("failed to forward port: %v", err)
 		}
 	}()
 
 	// wait for port forward to be ready
-	waitDNS()
+	waitPort("5300")
 
 	opt.DNSClusterZone = findZone(dnsPod.Status.PodIP)
 
-	pod, err := findPodByIP(client, "172.31.4.56", "cluster.local")
-	if err != nil {
-		klog.Fatalf("failed to find pod: %v", err)
-	}
-	if pod == nil {
-		klog.Fatalf("failed to find pod")
-	}
+	_kclient = client
+	Insert(opt)
 
-	select {}
-	// if opt.DNSClusterZone == "" {
-	// 	opt.DNSClusterZone = findZone(dnsPod.Status.PodIP)
-	// }
-	// Insert(opt)
+	Start()
+	defer Stop()
 
-	// Start()
-	// defer Stop()
-
-	// sigCh := make(chan os.Signal, 1)
-	// signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-	// <-sigCh
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	<-sigCh
 }
 
 // waitDns checks if the port forward is ready
-func waitDNS() {
+func waitPort(port string) {
 	for i := 0; i < 3; i++ {
-		_, err := net.Dial("tcp", "localhost:5300")
+		_, err := net.Dial("tcp", "localhost:"+port)
 		if err == nil {
 			break
 		}
@@ -239,4 +234,58 @@ func PodPortForward(clientCfg *rest.Config, pod *v1.Pod, ports []string) error {
 	}
 
 	return nil
+}
+
+func GetForwardedService(client kubernetes.Interface, dst net.Addr) (net.Addr, error) {
+	if dst.String() == "" {
+		return nil, fmt.Errorf("empty destination")
+	}
+
+	end := dst.String()
+	fmt.Println("end", end)
+
+	ip, p, err := net.SplitHostPort(end)
+	if err != nil {
+		return nil, fmt.Errorf("failed to split host port: %w", err)
+	}
+
+	dstPort, err := strconv.Atoi(p)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert port: %w", err)
+	}
+
+	n, ok := _fwdMap.get(fromAddr(fmt.Sprintf("tcp://%s:%d", ip, dstPort)))
+	if ok {
+		return n, nil
+	}
+
+	port := _fwdMap.findFreePort()
+
+	_fwdMap.addPort(port)
+
+	pod, err := findPodByIP(client, ip, opt.DNSClusterZone)
+	if err != nil {
+		return nil, err
+	}
+	go func() {
+		klog.Infof("Forwarding port: %s", port)
+		err := PodPortForward(_clientCfg, pod, []string{fmt.Sprintf("%s:%d", port, dstPort)})
+		if err != nil {
+			klog.Fatalf("failed to forward port: %v", err)
+		}
+	}()
+
+	// wait for port forward to be ready
+	klog.Infof("Waiting for port: %s", port)
+	waitPort(port)
+
+	klog.Infof("Port forward ready: %s", port)
+	portInt, _ := strconv.Atoi(port)
+	localNet := net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Port: portInt}
+
+	_fwdMap.add(fromAddr(fmt.Sprintf("tcp://%s:%d", ip, dstPort)), &localNet)
+
+	klog.Infof("Forwarded service: %s", localNet.String())
+
+	return &localNet, nil
 }
