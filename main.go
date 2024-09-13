@@ -128,6 +128,13 @@ func main() {
 		}
 	}()
 
+	go func() {
+		err := StartDNSProxy()
+		if err != nil {
+			klog.Fatalf("failed to start dns proxy: %v", err)
+		}
+	}()
+
 	// wait for port forward to be ready
 	waitPort("5300")
 

@@ -196,3 +196,39 @@ func rdns(dnsAddr net.Addr, ip string) (full string, err error) {
 
 	return ans, nil
 }
+
+const (
+	localAddr    = ":53"
+	upstreamAddr = "localhost:5300"
+)
+
+func handleDNSRequest(w dns.ResponseWriter, r *dns.Msg) {
+	client := new(dns.Client)
+	req := new(dns.Msg)
+	req.SetQuestion(r.Question[0].Name, r.Question[0].Qtype)
+	req.Id = r.Id
+	client.Net = "tcp"
+
+	resp, _, err := client.Exchange(req, upstreamAddr)
+	if err != nil {
+		klog.Errorf("Failed to exchange: %v", err)
+		return
+	}
+
+	err = w.WriteMsg(resp)
+	if err != nil {
+		klog.Errorf("Failed to write response: %v", err)
+	}
+}
+
+func StartDNSProxy() error {
+	server := &dns.Server{Addr: localAddr, Net: "udp", Handler: dns.HandlerFunc(handleDNSRequest)}
+
+	klog.Infof("Starting DNS proxy on %s", localAddr)
+	err := server.ListenAndServe()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
