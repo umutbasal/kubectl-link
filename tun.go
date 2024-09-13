@@ -7,6 +7,7 @@ import (
 	"net/netip"
 	"net/url"
 	"os/exec"
+	"regexp"
 	"strings"
 
 	"github.com/google/shlex"
@@ -61,11 +62,31 @@ func configure(opt *Opts) error {
 	return nil
 }
 
+var postUp = `ifconfig %s 198.18.0.1 198.18.0.1 up`
+
 func bootNetstack(opt *Opts) (err error) {
 	log.Infof("[NETSTACK] starting...")
 	if opt.Device == "" {
 		return errors.New("empty device")
 	}
+
+	reg := regexp.MustCompile(`^utun[0-9]+$`)
+	if !reg.MatchString(opt.Device) {
+		return errors.New("invalid device")
+	}
+
+	log.Infof("[TUN] pre-executing scripts")
+	if preUpErr := execCommand("echo hi"); preUpErr != nil {
+		log.Errorf("[TUN] failed to pre-execute: %v", preUpErr)
+		return preUpErr
+	}
+
+	defer func() {
+		log.Infof("[TUN] post-executing scripts")
+		if postUpErr := execCommand(fmt.Sprintf(postUp, opt.Device)); postUpErr != nil {
+			log.Errorf("[TUN] failed to post-execute: %v", postUpErr)
+		}
+	}()
 
 	_defaultProxy = NewDirect() // Use the Direct proxy
 	tunnel.T().SetDialer(_defaultProxy)
