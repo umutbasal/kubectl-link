@@ -272,7 +272,7 @@ func GetForwardedService(client kubernetes.Interface, dst string) (net.Addr, err
 	go func() {
 		klog.Infof("Forwarding port: %s", localPort)
 		if err := PodPortForward(_clientCfg, pod, []string{fmt.Sprintf("%s:%d", localPort, port)}); err != nil {
-			klog.Fatalf("failed to forward port: %v", err)
+			klog.Errorf("failed to forward port: %v", err)
 		}
 	}()
 
