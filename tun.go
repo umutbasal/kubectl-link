@@ -6,11 +6,11 @@ import (
 	"net"
 	"net/netip"
 	"net/url"
+	"os"
 	"os/exec"
 	"regexp"
 	"strings"
 
-	"github.com/google/shlex"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"k8s.io/klog"
@@ -62,7 +62,23 @@ func configure(opt *Opts) error {
 	return nil
 }
 
-var postUp = `ifconfig %s 198.18.0.1 198.18.0.1 up`
+var postUp = `
+ifconfig %s 198.18.0.1 198.18.0.1 up
+localdns="127.0.0.1"
+iface=$(route get default | grep interface | awk '{print $2}')
+echo "Interface: $iface"
+hwport=$(networksetup -listallhardwareports | grep -B 1 "$iface" | awk '/Hardware Port/{ print $3 }')
+echo "Hardware Port: $hwport"
+current_dns_list=$(networksetup -getdnsservers "$hwport")
+
+# if doesn't contain localdns
+if [[ $current_dns_list != *"$localdns"* ]]; then
+	echo "Adding $localdns to DNS list"
+	networksetup -setdnsservers "$hwport" "$localdns" $current_dns_list
+else
+	echo "DNS list already contains $localdns"
+fi
+`
 
 func bootNetstack(opt *Opts) (err error) {
 	log.Infof("[NETSTACK] starting...")
@@ -84,7 +100,7 @@ func bootNetstack(opt *Opts) (err error) {
 	defer func() {
 		log.Infof("[TUN] post-executing scripts")
 		if postUpErr := execCommand(fmt.Sprintf(postUp, opt.Device)); postUpErr != nil {
-			log.Errorf("[TUN] failed to post-execute: %v", postUpErr)
+			log.Fatalf("[TUN] failed to post-execute: %v", postUpErr)
 		}
 	}()
 
@@ -157,15 +173,24 @@ func InsertOptsTun(opt *Opts) {
 }
 
 func execCommand(cmd string) error {
-	parts, err := shlex.Split(cmd)
-	if err != nil {
+	// write to a tmp shell script
+	tmp := os.TempDir()
+	file := fmt.Sprintf("%s/%s", tmp, "tun2socks.sh")
+	if err := os.WriteFile(file, []byte(cmd), 0755); err != nil {
 		return err
 	}
-	if len(parts) == 0 {
-		return errors.New("empty command")
+
+	// execute the shell script
+	if err := exec.Command("sh", file).Run(); err != nil {
+		return err
 	}
-	_, err = exec.Command(parts[0], parts[1:]...).Output()
-	return err
+
+	// remove the tmp shell script
+	if err := os.Remove(file); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // parseDevice parses the device string and returns a device.Device.

@@ -203,6 +203,7 @@ const (
 )
 
 func handleDNSRequest(w dns.ResponseWriter, r *dns.Msg) {
+	// TODO: filter out of .zone requests
 	client := new(dns.Client)
 	req := new(dns.Msg)
 	req.SetQuestion(r.Question[0].Name, r.Question[0].Qtype)
