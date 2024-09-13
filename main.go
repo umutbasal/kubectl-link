@@ -8,10 +8,12 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path"
 	"runtime"
 	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -63,8 +65,13 @@ var (
 )
 
 func pluginFlags(flags *pflag.FlagSet) {
-	flags.StringVar(&opt.Device, "device", "", "Use this device [driver://]name")
-	flags.StringVar(&opt.Interface, "interface", "", "Use network INTERFACE (Linux/MacOS only)")
+	ibytes, err := exec.Command("sh", "-c", "route get default | grep interface | awk '{print $2}'").Output()
+	if err != nil {
+		klog.Fatalf("failed to get default interface: %v", err)
+	}
+	defaultIface := strings.TrimSpace(string(ibytes))
+	flags.StringVar(&opt.Device, "device", "utun123", "Use this device [driver://]name")
+	flags.StringVar(&opt.Interface, "interface", string(defaultIface), "Use network INTERFACE (Linux/MacOS only)")
 	flags.StringVar(&opt.Tun2SocksLogLevel, "tun2socks-log-level", "info", "Log level [debug|info|warn|error|silent]")
 	flags.StringVar(&opt.DNSPod, "dns-pod", "", "DNS pod name")
 	flags.StringVar(&opt.DNSClusterZone, "dns-cluster-zone", "cluster.local", "DNS cluster zone")
