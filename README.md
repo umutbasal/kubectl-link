@@ -1,12 +1,20 @@
 # kubectl-link
 
-## misc
+## Installation
 
 ```sh
-sudo go run . -device utun123 -interface en9
-sudo ifconfig utun123 198.18.0.1 198.18.0.1 up
-sudo route add -net 208.79.209.138/24 198.18.0.1
+go install github.com/umutbasal/kubectl-link@latest
+```
 
-#service cidr
-kubectl create service clusterip testcidr --tcp='8080:8080' --clusterip='1.0.0.0'
+## Usage
+
+```sh
+sudo kubectl link
+```
+
+## Visit your pods and services through your browser or curl
+
+```sh
+curl http://nginx.default.svc.cluster.local
+curl http://172.17.1.1
 ```
