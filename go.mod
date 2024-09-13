@@ -3,10 +3,10 @@ module github.com/umutbasal/kubectl-link
 go 1.23
 
 require (
-	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/miekg/dns v1.1.62
 	github.com/spf13/pflag v1.0.5
 	github.com/xjasonlyu/tun2socks/v2 v2.5.3-0.20240901220638-bf745d0e0e5d
+	go.uber.org/zap v1.27.0
 	gvisor.dev/gvisor v0.0.0-20240830204415-159eaccf7fd7
 	k8s.io/api v0.31.0
 	k8s.io/apimachinery v0.31.0
@@ -33,6 +33,7 @@ require (
 	github.com/google/gnostic-models v0.6.8 // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
+	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/gregjones/httpcache v0.0.0-20180305231024-9cad4c3443a7 // indirect
@@ -57,7 +58,6 @@ require (
 	go.starlark.net v0.0.0-20230525235612-a134d8f9ddca // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	go.uber.org/zap v1.27.0 // indirect
 	golang.org/x/crypto v0.26.0 // indirect
 	golang.org/x/mod v0.18.0 // indirect
 	golang.org/x/net v0.28.0 // indirect
