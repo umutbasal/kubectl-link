@@ -1,7 +1,10 @@
 # kubectl-link
 
-https://github.com/user-attachments/assets/fcdc04ce-b657-42d1-9036-f0d1db6647a3
+kubectl-link is a kubectl plugin that allows you to access your pods and services without vpn or manually setting up port forwarding.
 
+- It creates a tun device on your machine to route traffic to your kubernetes cluster with automatically setting port forwarding based your network connections.
+
+<https://github.com/user-attachments/assets/fcdc04ce-b657-42d1-9036-f0d1db6647a3>
 
 ## Installation
 
