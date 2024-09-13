@@ -175,7 +175,7 @@ func InsertOptsTun(opt *Opts) {
 func execCommand(cmd string) error {
 	// write to a tmp shell script
 	tmp := os.TempDir()
-	file := fmt.Sprintf("%s/%s", tmp, "tun2socks.sh")
+	file := fmt.Sprintf("%s/%s", tmp, "kubectl-link-postup.sh")
 	if err := os.WriteFile(file, []byte(cmd), 0755); err != nil {
 		return err
 	}
