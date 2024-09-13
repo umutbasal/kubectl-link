@@ -26,3 +26,6 @@ sudo kubectl link
 curl http://nginx.default.svc.cluster.local
 curl http://172.17.1.1
 ```
+
+## refs
+- https://github.com/xjasonlyu/tun2socks
