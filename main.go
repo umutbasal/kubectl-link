@@ -273,6 +273,12 @@ func GetForwardedService(client kubernetes.Interface, dst string) (net.Addr, err
 		klog.Infof("Forwarding port: %s", localPort)
 		if err := PodPortForward(_clientCfg, pod, []string{fmt.Sprintf("%s:%d", localPort, port)}); err != nil {
 			klog.Errorf("failed to forward port: %v", err)
+			// TODO: if port forward fails, we add a dummy address to prevent further attempts
+			// maybe we should remove it for a retry if port is exposed later
+			_fwdMap.add(fromAddr(fmt.Sprintf("tcp://%s:%d", ip, port)), &net.TCPAddr{
+				IP:   net.IPv4(127, 0, 0, 1),
+				Port: 50001,
+			})
 		}
 	}()
 
@@ -281,11 +287,11 @@ func GetForwardedService(client kubernetes.Interface, dst string) (net.Addr, err
 	waitPort(localPort)
 
 	klog.Infof("Port forward ready: %s", localPort)
-	port, err = strconv.Atoi(localPort)
+	lport, err := strconv.Atoi(localPort)
 	if err != nil {
 		klog.Fatalf("failed to convert port: %v", err)
 	}
-	localNet := &net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Port: port}
+	localNet := &net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Port: lport}
 
 	// Update the forwarding map with the new local address
 	_fwdMap.add(fromAddr(fmt.Sprintf("tcp://%s:%d", ip, port)), localNet)
