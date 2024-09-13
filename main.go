@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"os/user"
 	"path"
 	"runtime"
 	"strconv"
@@ -81,6 +82,13 @@ func pluginFlags(flags *pflag.FlagSet) {
 func main() {
 	if runtime.GOOS != "darwin" {
 		klog.Fatalf("only MacOS is supported")
+	}
+	currentUser, err := user.Current()
+	if err != nil {
+		klog.Fatalf("failed to get current user: %v", err)
+	}
+	if currentUser.Uid != "0" {
+		klog.Fatalf("must run as root")
 	}
 	flags := pflag.NewFlagSet("kubectl-link", pflag.ExitOnError)
 	pflag.CommandLine = flags
