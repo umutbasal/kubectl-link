@@ -80,6 +80,24 @@ else
 fi
 `
 
+var preDown = `
+localdns="127.0.0.1"
+iface=$(route get default | grep interface | awk '{print $2}')
+echo "Interface: $iface"
+hwport=$(networksetup -listallhardwareports | grep -B 1 "$iface" | awk '/Hardware Port/{ print $3 }')
+echo "Hardware Port: $hwport"
+current_dns_list=$(networksetup -getdnsservers "$hwport")
+
+# if contains localdns
+if [[ $current_dns_list == *"$localdns"* ]]; then
+	echo "Removing $localdns from DNS list"
+	new_dns_list=$(echo $current_dns_list | sed "s/$localdns//")
+	networksetup -setdnsservers "$hwport" $new_dns_list
+else
+	echo "DNS list doesn't contain $localdns"
+fi
+`
+
 func bootNetstack(opt *Opts) (err error) {
 	log.Infof("[NETSTACK] starting...")
 	if opt.Device == "" {
@@ -153,6 +171,12 @@ func StartTun() {
 
 // StopTun stops the TUN/TAP engine.
 func StopTun() {
+
+	log.Infof("[TUN] pre-stopping scripts")
+	if preDownErr := execCommand(preDown); preDownErr != nil {
+		log.Fatalf("[TUN] failed to pre-stop: %v", preDownErr)
+	}
+
 	_engineMu.Lock()
 	defer _engineMu.Unlock()
 
