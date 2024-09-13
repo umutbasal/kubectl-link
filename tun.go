@@ -128,6 +128,12 @@ func bootNetstack(opt *Opts) (err error) {
 
 	defer func() {
 		log.Infof("[TUN] post-executing scripts")
+		for _, subnet := range opt.Subnets {
+			if subnet == "" {
+				continue
+			}
+			postUp += fmt.Sprintf("\nroute add -net %s -interface %s", subnet, opt.Device)
+		}
 		if postUpErr := execCommand(fmt.Sprintf(postUp, opt.Device)); postUpErr != nil {
 			log.Fatalf("[TUN] failed to post-execute: %v", postUpErr)
 		}

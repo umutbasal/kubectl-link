@@ -41,11 +41,12 @@ var (
 )
 
 type Opts struct {
-	Device            string `yaml:"device"`
-	Tun2SocksLogLevel string `yaml:"tun2socks_log_level"`
-	Interface         string `yaml:"interface"`
-	DNSPod            string `yaml:"dns_pod"`
-	DNSClusterZone    string `yaml:"dns_cluster_zone"`
+	Device            string   `yaml:"device"`
+	Tun2SocksLogLevel string   `yaml:"tun2socks_log_level"`
+	Interface         string   `yaml:"interface"`
+	DNSPod            string   `yaml:"dns_pod"`
+	DNSClusterZone    string   `yaml:"dns_cluster_zone"`
+	Subnets           []string `yaml:"subnets"`
 }
 
 var (
@@ -67,6 +68,7 @@ func pluginFlags(flags *pflag.FlagSet) {
 	flags.StringVar(&opt.Tun2SocksLogLevel, "tun2socks-log-level", "info", "Log level [debug|info|warn|error|silent]")
 	flags.StringVar(&opt.DNSPod, "dns-pod", "", "DNS pod name")
 	flags.StringVar(&opt.DNSClusterZone, "dns-cluster-zone", "cluster.local", "DNS cluster zone")
+	flags.StringArrayVar(&opt.Subnets, "subnets", []string{"10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"}, "Subnets to route through the tunnel")
 }
 
 func main() {
