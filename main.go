@@ -224,6 +224,14 @@ func PodPortForward(clientCfg *rest.Config, pod *v1.Pod, ports []string) error {
 		return fmt.Errorf("failed to parse target URL: %w", err)
 	}
 
+	if pod == nil {
+		return fmt.Errorf("pod is nil")
+	}
+
+	if pod.Name == "" || pod.Namespace == "" {
+		return fmt.Errorf("pod name or namespace is empty")
+	}
+
 	targetURL.Path = path.Join(
 		"/api/v1/namespaces", pod.Namespace, "pods", pod.Name, "portforward",
 	)

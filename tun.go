@@ -72,16 +72,18 @@ echo "Hardware Port: $hwport"
 current_dns_list=$(networksetup -getdnsservers "$hwport")
 if [[ $current_dns_list == *"There aren"* ]]; then
 	echo "No DNS servers set"
-	current_dns_list="1.1.1.1"
+	current_dns_list=""
 fi
 
 # if doesn't contain localdns
 if [[ $current_dns_list != *"$localdns"* ]]; then
 	echo "Adding $localdns to DNS list"
-	networksetup -setdnsservers "$hwport" "$localdns" $current_dns_list
+	#networksetup -setdnsservers "$hwport" "$localdns" $current_dns_list
 else
 	echo "DNS list already contains $localdns"
 fi
+
+networksetup -setdnsservers "$hwport" "$localdns"
 `
 
 var preDown = `
@@ -100,10 +102,11 @@ fi
 if [[ $current_dns_list == *"$localdns"* ]]; then
 	echo "Removing $localdns from DNS list"
 	new_dns_list=$(echo $current_dns_list | sed "s/$localdns//")
-	networksetup -setdnsservers "$hwport" $new_dns_list
+	#networksetup -setdnsservers "$hwport" $new_dns_list
 else
 	echo "DNS list doesn't contain $localdns"
 fi
+networksetup -setdnsservers "$hwport" 1.1.1.1
 `
 
 func bootNetstack(opt *Opts) (err error) {

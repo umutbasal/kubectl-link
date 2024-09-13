@@ -104,7 +104,12 @@ func findPodByIP(client kubernetes.Interface, ip string, zone string) (pod *v1.P
 		}
 	}
 
-	return nil, nil
+	if len(pods.Items) == 0 {
+		klog.Errorf("no pods found")
+		return nil, nil
+	}
+
+	return &pods.Items[0], nil
 }
 
 func split(name string, zone string) (_type, port, protocol, service, namespace, endpoint string) {
@@ -210,17 +215,17 @@ func handleDNSRequest(w dns.ResponseWriter, r *dns.Msg) {
 		klog.Errorf("No questions in request")
 		return
 	}
-
+	upstream := upstreamAddr
 	// filter out requests that are not for the cluster zone
 	if !strings.Contains(r.Question[0].Name, opt.DNSClusterZone) {
-		return
+		upstream = "1.1.1.1:53"
 	}
 
 	req.SetQuestion(r.Question[0].Name, r.Question[0].Qtype)
 	req.Id = r.Id
 	client.Net = "tcp"
 
-	resp, _, err := client.Exchange(req, upstreamAddr)
+	resp, _, err := client.Exchange(req, upstream)
 	if err != nil {
 		klog.Errorf("Failed to exchange: %v", err)
 		return
