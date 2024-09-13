@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"path"
+	"runtime"
 	"strconv"
 	"sync"
 	"syscall"
@@ -69,6 +70,9 @@ func pluginFlags(flags *pflag.FlagSet) {
 }
 
 func main() {
+	if runtime.GOOS != "darwin" {
+		klog.Fatalf("only MacOS is supported")
+	}
 	flags := pflag.NewFlagSet("kubectl-link", pflag.ExitOnError)
 	pflag.CommandLine = flags
 
