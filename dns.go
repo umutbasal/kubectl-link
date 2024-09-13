@@ -203,9 +203,19 @@ const (
 )
 
 func handleDNSRequest(w dns.ResponseWriter, r *dns.Msg) {
-	// TODO: filter out of .zone requests
 	client := new(dns.Client)
 	req := new(dns.Msg)
+
+	if len(r.Question) == 0 {
+		klog.Errorf("No questions in request")
+		return
+	}
+
+	// filter out requests that are not for the cluster zone
+	if !strings.Contains(r.Question[0].Name, opt.DNSClusterZone) {
+		return
+	}
+
 	req.SetQuestion(r.Question[0].Name, r.Question[0].Qtype)
 	req.Id = r.Id
 	client.Net = "tcp"
