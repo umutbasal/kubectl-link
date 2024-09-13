@@ -29,3 +29,5 @@ curl http://172.17.1.1
 
 ## refs
 - https://github.com/xjasonlyu/tun2socks
+- https://github.com/google/gvisor
+- https://git.zx2c4.com/wireguard-go
