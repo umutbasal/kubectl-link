@@ -51,6 +51,25 @@ func findPodByIP(client kubernetes.Interface, ip string, zone string) (pod *v1.P
 
 	_, _, _, service, namespace, endpoint := split(name, zone)
 
+	if service == "" || namespace == "" {
+		klog.Errorf("try direct pod lookup")
+		pods, err := client.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{
+			FieldSelector: "status.phase=Running,status.podIP=" + ip,
+		})
+
+		if err != nil {
+			klog.Errorf("failed to list pods: %v", err)
+			return nil, err
+		}
+
+		if len(pods.Items) == 0 {
+			klog.Errorf("no pods found")
+			return nil, nil
+		}
+
+		return &pods.Items[0], nil
+	}
+
 	svc, err := client.CoreV1().Services(namespace).Get(context.TODO(), service, metav1.GetOptions{})
 	if err != nil {
 		klog.Errorf("failed to get service: %v", err)
