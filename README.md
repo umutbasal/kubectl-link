@@ -1,5 +1,8 @@
 # kubectl-link
 
+https://github.com/user-attachments/assets/fcdc04ce-b657-42d1-9036-f0d1db6647a3
+
+
 ## Installation
 
 ```sh
