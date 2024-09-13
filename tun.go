@@ -67,9 +67,13 @@ ifconfig %s 198.18.0.1 198.18.0.1 up
 localdns="127.0.0.1"
 iface=$(route get default | grep interface | awk '{print $2}')
 echo "Interface: $iface"
-hwport=$(networksetup -listallhardwareports | grep -B 1 "$iface" | awk '/Hardware Port/{ print $3 }')
+hwport=$(networksetup -listallhardwareports | grep -B 1 "$iface" | awk -F': ' '/Hardware Port/{ print $2 }')
 echo "Hardware Port: $hwport"
 current_dns_list=$(networksetup -getdnsservers "$hwport")
+if [[ $current_dns_list == *"There aren"* ]]; then
+	echo "No DNS servers set"
+	current_dns_list="1.1.1.1"
+fi
 
 # if doesn't contain localdns
 if [[ $current_dns_list != *"$localdns"* ]]; then
@@ -84,9 +88,13 @@ var preDown = `
 localdns="127.0.0.1"
 iface=$(route get default | grep interface | awk '{print $2}')
 echo "Interface: $iface"
-hwport=$(networksetup -listallhardwareports | grep -B 1 "$iface" | awk '/Hardware Port/{ print $3 }')
+hwport=$(networksetup -listallhardwareports | grep -B 1 "$iface" | awk -F': ' '/Hardware Port/{ print $2 }')
 echo "Hardware Port: $hwport"
 current_dns_list=$(networksetup -getdnsservers "$hwport")
+if [[ $current_dns_list == *"There aren"* ]]; then
+	echo "No DNS servers set"
+	current_dns_list="1.1.1.1"
+fi
 
 # if contains localdns
 if [[ $current_dns_list == *"$localdns"* ]]; then
