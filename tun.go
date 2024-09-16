@@ -69,19 +69,6 @@ iface=$(route get default | grep interface | awk '{print $2}')
 echo "Interface: $iface"
 hwport=$(networksetup -listallhardwareports | grep -B 1 "$iface" | awk -F': ' '/Hardware Port/{ print $2 }')
 echo "Hardware Port: $hwport"
-current_dns_list=$(networksetup -getdnsservers "$hwport")
-if [[ $current_dns_list == *"There aren"* ]]; then
-	echo "No DNS servers set"
-	current_dns_list=""
-fi
-
-# if doesn't contain localdns
-if [[ $current_dns_list != *"$localdns"* ]]; then
-	echo "Adding $localdns to DNS list"
-	#networksetup -setdnsservers "$hwport" "$localdns" $current_dns_list
-else
-	echo "DNS list already contains $localdns"
-fi
 
 networksetup -setdnsservers "$hwport" "$localdns"
 `
@@ -92,21 +79,7 @@ iface=$(route get default | grep interface | awk '{print $2}')
 echo "Interface: $iface"
 hwport=$(networksetup -listallhardwareports | grep -B 1 "$iface" | awk -F': ' '/Hardware Port/{ print $2 }')
 echo "Hardware Port: $hwport"
-current_dns_list=$(networksetup -getdnsservers "$hwport")
-if [[ $current_dns_list == *"There aren"* ]]; then
-	echo "No DNS servers set"
-	current_dns_list="1.1.1.1"
-fi
-
-# if contains localdns
-if [[ $current_dns_list == *"$localdns"* ]]; then
-	echo "Removing $localdns from DNS list"
-	new_dns_list=$(echo $current_dns_list | sed "s/$localdns//")
-	#networksetup -setdnsservers "$hwport" $new_dns_list
-else
-	echo "DNS list doesn't contain $localdns"
-fi
-networksetup -setdnsservers "$hwport" 1.1.1.1
+networksetup -setdnsservers "$hwport" empty
 `
 
 func bootNetstack(opt *Opts) (err error) {

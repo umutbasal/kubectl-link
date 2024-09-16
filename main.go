@@ -50,6 +50,7 @@ type Opts struct {
 	DNSPod            string   `yaml:"dns_pod"`
 	DNSClusterZone    string   `yaml:"dns_cluster_zone"`
 	Subnets           []string `yaml:"subnets"`
+	Reset             bool     `yaml:"reset"`
 }
 
 var (
@@ -77,6 +78,7 @@ func pluginFlags(flags *pflag.FlagSet) {
 	flags.StringVar(&opt.DNSPod, "dns-pod", "", "DNS pod name")
 	flags.StringVar(&opt.DNSClusterZone, "dns-cluster-zone", "cluster.local", "DNS cluster zone")
 	flags.StringArrayVar(&opt.Subnets, "subnets", []string{"10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"}, "Subnets to route through the tunnel")
+	flags.BoolVar(&opt.Reset, "reset", false, "Reset the network stack / dns")
 }
 
 func main() {
@@ -103,6 +105,14 @@ func main() {
 	configFlags.AddFlags(flags)
 
 	flags.Parse(os.Args[1:])
+
+	if opt.Reset {
+		klog.Infof("Resetting network stack")
+		if err := execCommand(preDown); err != nil {
+			klog.Fatalf("failed to execute pre-down: %v", err)
+		}
+		return
+	}
 
 	rawConfig, err := configFlags.ToRawKubeConfigLoader().RawConfig()
 	if err != nil {
