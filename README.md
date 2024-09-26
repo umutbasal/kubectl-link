@@ -37,5 +37,3 @@ curl http://172.17.1.1
   - This is known isse for macs if you have a local dns server like `mDNSResponder` or using vpn clients like Cloudflare Warp.
   - You can try to solve by stopping `docker daemon`, or `virtual machine managers` or disabling `Internet Sharing` feature for macbooks.
   - Reference: https://developers.cloudflare.com/cloudflare-one/connections/connect-devices/warp/troubleshooting/client-errors/#cf_dns_proxy_failure
-
-test
