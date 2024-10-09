@@ -7,9 +7,8 @@ spec:
   homepage: https://github.com/umutbasal/kubectl-link
   shortDescription: Access cluster resources without vpn
   description: |
-    kubectl-link is a kubectl plugin that allows you to
-    access your pods and services without vpn or manually
-    setting up port forwarding.
+    kubectl-link simplifies accessing your Kubernetes
+    pods and services by automatically creating port-forwards on demand
   platforms:
   - selector:
       matchLabels:
