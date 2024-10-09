@@ -1,0 +1,25 @@
+apiVersion: krew.googlecontainertools.github.com/v1alpha2
+kind: Plugin
+metadata:
+  name: link
+spec:
+  version: {{ .TagName }}
+  homepage: https://github.com/umutbasal/kubectl-link
+  shortDescription: Access cluster resources without vpn
+  description: |
+    kubectl-link is a kubectl plugin that allows you to
+    access your pods and services without vpn or manually
+    setting up port forwarding.
+  platforms:
+  - selector:
+      matchLabels:
+        os: darwin
+        arch: amd64
+    {{addURIAndSha "https://github.com/umutbasal/kubectl-link/releases/download/{{ .TagName }}/kubectl-link_Darwin_x86_64.tar.gz" .TagName }}
+    bin: kubectl-link
+  - selector:
+      matchLabels:
+        os: darwin
+        arch: arm64
+    {{addURIAndSha "https://github.com/umutbasal/kubectl-link/releases/download/{{ .TagName }}/kubectl-link_Darwin_arm64.tar.gz" .TagName }}
+    bin: kubectl-link
