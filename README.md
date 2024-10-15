@@ -9,10 +9,8 @@ kubectl-link is a kubectl plugin that allows you to access your pods and service
 https://github.com/user-attachments/assets/fcdc04ce-b657-42d1-9036-f0d1db6647a3
 
 ## Installation
-
-```sh
-go install github.com/umutbasal/kubectl-link@latest
-```
+- Install krew (https://krew.sigs.k8s.io/docs/user-guide/setup/install/)
+- `kubectl krew install link`
 
 ## Usage
 
